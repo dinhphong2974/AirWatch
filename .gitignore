@@ -19,7 +19,7 @@ env/
 .env
 ai-service/.env
 ai-service/__pycache__/
-ai-service/models/*.joblib
+
 
 # Local databases and logs
 *.db
