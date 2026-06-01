@@ -8,7 +8,13 @@ import fs from 'fs';
 import type { SensorPayload, SensorReading, HistoryResponse } from './types';
 import { pm25ToAqi, getAqiInfo } from './aqi';
 
-const DB_PATH = process.env.DB_PATH ?? path.join(process.cwd(), 'data', 'aqi.db');
+const isVercel = !!process.env.VERCEL;
+
+// On Vercel, the filesystem is read-only except for /tmp.
+// We copy the seeded database to /tmp/aqi.db on startup if it doesn't exist.
+const DB_PATH = isVercel
+  ? '/tmp/aqi.db'
+  : (process.env.DB_PATH ?? path.join(process.cwd(), 'data', 'aqi.db'));
 
 // Singleton instance
 let _db: Database.Database | null = null;
@@ -16,13 +22,54 @@ let _db: Database.Database | null = null;
 function getDb(): Database.Database {
   if (_db) return _db;
 
-  // Create data directory if not exists (for local dev)
   const dir = path.dirname(DB_PATH);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+  if (isVercel) {
+    // Check if the database in /tmp already exists
+    if (!fs.existsSync(DB_PATH)) {
+      console.log('[db] Initializing /tmp/aqi.db on Vercel...');
+      // Try to find the bundled seeded database
+      const sourceDbPaths = [
+        path.join(process.cwd(), 'data', 'aqi.db'),
+        path.join(process.cwd(), 'frontend', 'data', 'aqi.db'),
+        path.join(process.cwd(), 'public', 'aqi.db'),
+      ];
+
+      let copied = false;
+      for (const src of sourceDbPaths) {
+        if (fs.existsSync(src)) {
+          try {
+            fs.copyFileSync(src, DB_PATH);
+            console.log(`[db] Successfully copied seeded database from ${src}`);
+            copied = true;
+            break;
+          } catch (copyErr) {
+            console.error(`[db] Failed to copy database from ${src}:`, copyErr);
+          }
+        }
+      }
+
+      if (!copied) {
+        console.log('[db] No seeded database found in bundle, creating empty database...');
+      }
+    }
+  } else {
+    // Create data directory if not exists (for local dev)
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  }
 
   _db = new Database(DB_PATH);
-  _db.pragma('journal_mode = WAL');
-  _db.pragma('synchronous = NORMAL');
+
+  // WAL mode can fail if the database or folder is read-only, but since we are using /tmp or local writeable dir, it's fine.
+  try {
+    _db.pragma('journal_mode = WAL');
+    _db.pragma('synchronous = NORMAL');
+  } catch (pragmaErr) {
+    console.error('[db] Failed to set SQLite pragmas:', pragmaErr);
+  }
+
   initSchema(_db);
   return _db;
 }
