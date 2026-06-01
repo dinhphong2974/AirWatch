@@ -32,7 +32,7 @@
 // WiFi se duoc cau hinh dong qua WiFiManager, khong can nap code lai.
 
 // ===================== Dashboard Server =====================
-const char* DASHBOARD_SERVER = "https://air-quality-dashboard-uxpq.onrender.com/api/data";
+const char* DASHBOARD_SERVER = "https://frontend-eight-xi-85.vercel.app/api/data";
 
 // ===================== TFT Object =====================
 Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCK, TFT_RST);
