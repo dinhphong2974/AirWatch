@@ -1,0 +1,11 @@
+.git
+node_modules
+frontend/.next
+frontend/node_modules
+__pycache__
+*.pyc
+*.pyo
+ai-service/models/*.joblib
+*.log
+*.db
+data_train/2026-*.csv
