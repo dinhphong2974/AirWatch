@@ -24,7 +24,7 @@ export default function ForecastPage() {
         <div style={{ marginBottom: 'var(--space-lg)' }}>
           <h1 style={{ fontSize: '1.25rem', fontWeight: 700 }}>AI Forecast</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', marginTop: 2 }}>
-            LSTM + Random Forest hybrid — PM2.5 short-term prediction
+            Multi-Output RandomForest Regression + Classification Forecast
           </p>
         </div>
 
@@ -37,23 +37,23 @@ export default function ForecastPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-md)', marginTop: 'var(--space-sm)' }}>
             {[
               {
-                step: '①', title: 'Data Collection',
-                desc: 'ESP32 sends readings every ~30s. At least 48 readings needed to train (≈24 min).',
+                step: '①', title: 'Data Loading',
+                desc: 'Loads historical dataset containing 23k+ balanced records combined with active sensor readings.',
                 color: '#60A5FA',
               },
               {
-                step: '②', title: 'LSTM Trend Model',
-                desc: 'Learns temporal patterns from a 24-step sliding window. Captures long-term trend.',
+                step: '②', title: 'Multi-Output Regressor',
+                desc: 'Simultaneously forecasts 5 metrics: PM2.5, Temperature, Humidity, Pressure, and UV index.',
                 color: '#A78BFA',
               },
               {
-                step: '③', title: 'Random Forest Correction',
-                desc: 'Corrects LSTM residuals using lag features + time-of-day signals.',
+                step: '③', title: 'Weather Classifier',
+                desc: 'Predicts the weather label (normal, rainy, sunny) along with classification confidence.',
                 color: '#34D399',
               },
               {
-                step: '④', title: 'Forecast Output',
-                desc: 'Returns next 3–24 steps with confidence band. Re-train any time for fresh model.',
+                step: '④', title: 'Autoregressive Roll',
+                desc: 'Uses a 12-step sliding window to forecast future values step-by-step.',
                 color: '#FBBF24',
               },
             ].map(({ step, title, desc, color }) => (
@@ -75,12 +75,11 @@ export default function ForecastPage() {
             border: '1px solid rgba(167,139,250,0.2)',
             fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6,
           }}>
-            <strong style={{ color: '#A78BFA' }}>📊 Data requirements:</strong>
-            {' '}Minimum <strong>48 readings</strong> (~24 min at 30s interval) to train.
-            Recommended <strong>288+ readings</strong> (≈2.4 hours) for good accuracy.
-            With 30s sensor interval the model predicts up to{' '}
-            <strong>12 minutes ahead</strong> (24 steps × 30s).
-            For best results, leave the sensor running overnight and retrain in the morning.
+            <strong style={{ color: '#A78BFA' }}>📊 Model requirements & Performance:</strong>
+            {' '}Trained from a balanced CSV with <strong>23,576 rows</strong>.
+            Achieves a classifier in-sample accuracy of <strong>99.59%</strong>.
+            Uses a sliding window of the last <strong>12 sensor readings</strong> (approx. 1 hour) to initialize forecasts.
+            Predicts up to <strong>24 steps ahead</strong> dynamically using an autoregressive loop.
           </div>
         </div>
 
