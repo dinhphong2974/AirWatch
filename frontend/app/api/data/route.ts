@@ -22,6 +22,23 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Boundary validation for physical metrics to ensure data integrity
+    if (body.pm25! < 0 || body.pm25! > 1000) {
+      return NextResponse.json({ error: 'pm25 out of range [0, 1000]' }, { status: 400 });
+    }
+    if (body.temperature! < -50 || body.temperature! > 100) {
+      return NextResponse.json({ error: 'temperature out of range [-50, 100]' }, { status: 400 });
+    }
+    if (body.humidity! < 0 || body.humidity! > 100) {
+      return NextResponse.json({ error: 'humidity out of range [0, 100]' }, { status: 400 });
+    }
+    if (body.pressure! < 800 || body.pressure! > 1200) {
+      return NextResponse.json({ error: 'pressure out of range [800, 1200]' }, { status: 400 });
+    }
+    if (body.uv! < 0 || body.uv! > 25) {
+      return NextResponse.json({ error: 'uv out of range [0, 25]' }, { status: 400 });
+    }
+
     const payload = body as SensorPayload;
     const id = insertReading(payload);
 

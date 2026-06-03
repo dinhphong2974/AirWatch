@@ -448,11 +448,16 @@ def _model_forecast(recent_rows: list[dict], steps: int) -> list[dict]:
     if len(recent_rows) < W:
         raise ValueError(f"Need ≥ {W} recent rows for inference, got {len(recent_rows)}")
 
-    # Build raw feature matrix from recent rows
+    # Build raw feature matrix from recent rows with robust clipping limits
     raw_features: list[list[float]] = []
     for row in recent_rows[-W:]:
         try:
-            vals = [float(row[c]) for c in FEATURE_COLS]
+            pm25 = max(0.0, min(1000.0, float(row.get("pm25", 0.0))))
+            temp = max(-50.0, min(100.0, float(row.get("temperature", 0.0))))
+            hum  = max(0.0, min(100.0, float(row.get("humidity", 0.0))))
+            pres = max(800.0, min(1200.0, float(row.get("pressure", 0.0))))
+            uv   = max(0.0, min(25.0, float(row.get("uv", 0.0))))
+            vals = [pm25, temp, hum, pres, uv]
             h_sin, h_cos, d_sin, d_cos = _parse_time_features(
                 row.get("date", ""), row.get("time", "")
             )

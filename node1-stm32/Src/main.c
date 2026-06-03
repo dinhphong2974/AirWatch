@@ -73,6 +73,7 @@ UART_HandleTypeDef huart1;
 /* USER CODE BEGIN PV */
 DS3231_Time_t rtc_time;
 SX1278_HandleTypeDef lora;
+uint8_t bme280_enabled = 1;
 char str_pm25[12], old_pm25[12] = "";
 char str_temp[12], old_temp[12] = "";
 char str_humi[12], old_humi[12] = "";
@@ -134,53 +135,70 @@ int main(void)
   MX_SPI2_Init();
   /* USER CODE BEGIN 2 */
   HAL_ADCEx_Calibration_Start(&hadc1);
-  	  	  // DS3231
-  DS3231_Init(&hi2c1);
-  /* rtc_time.seconds = 30 ;
-   rtc_time.minutes = 0;
-    rtc_time.hours   = 16;
-    rtc_time.day     = 2;
-    rtc_time.date    = 23;
-    rtc_time.month   = 2;
-    rtc_time.year    = 26;
-    DS3231_SetTime(&hi2c1, &rtc_time);*/
-    HAL_Delay(10);
-  DS3231_GetTime(&hi2c1, &rtc_time);
 
-  	  	  // BME280
+  // Initialize LCD screen first to display boot diagnostics
+  memset(&lcd_data, 0, sizeof(lcd_data));
+  LCD_UI_Init();
+  LCD_DrawString(12, 44, "Booting System...", LCD_WHITE, LCD_PANEL_2, 1);
+  HAL_Delay(500);
+
+  // 1. DS3231 RTC
+  LCD_DrawString(12, 44, "Initializing RTC...     ", LCD_WHITE, LCD_PANEL_2, 1);
+  if (DS3231_Init(&hi2c1) != HAL_OK)
+  {
+      LCD_DrawString(12, 44, "RTC: FAILED             ", LCD_RED, LCD_PANEL_2, 1);
+      HAL_Delay(1000);
+  }
+  else
+  {
+      DS3231_GetTime(&hi2c1, &rtc_time);
+  }
+
+  // 2. BME280
+  LCD_DrawString(12, 44, "Initializing BME280...  ", LCD_WHITE, LCD_PANEL_2, 1);
   if (BME280_Config(OSRS_2, OSRS_16, OSRS_1, MODE_NORMAL, T_SB_0p5, IIR_16) != 0)
-   {
- 	  Error_Handler();
-   }
+  {
+      bme280_enabled = 0;
+      LCD_DrawString(12, 44, "BME280: FAILED (Skip)  ", LCD_YELLOW, LCD_PANEL_2, 1);
+      HAL_Delay(1500);
+  }
 
-  	  	  	  // PMS7003
+  // 3. PMS7003
+  LCD_DrawString(12, 44, "Initializing PMS7003... ", LCD_WHITE, LCD_PANEL_2, 1);
   PMS_Init(&huart1);
+  if (HAL_UART_Receive_IT(&huart1, &pms_rx_byte, 1) != HAL_OK)
+  {
+      LCD_DrawString(12, 44, "PMS7003 UART Error!     ", LCD_RED, LCD_PANEL_2, 1);
+      HAL_Delay(2000);
+      Error_Handler();
+  }
 
-    if (HAL_UART_Receive_IT(&huart1, &pms_rx_byte, 1) != HAL_OK)
-    {
-        Error_Handler();
-    }
+  // 4. SX1278 LoRa
+  LCD_DrawString(12, 44, "Initializing LoRa...    ", LCD_WHITE, LCD_PANEL_2, 1);
+  lora.hspi = &hspi1;
+  lora.nss_port = GPIOA;
+  lora.nss_pin = GPIO_PIN_4;
+  lora.reset_port = GPIOA;
+  lora.reset_pin = GPIO_PIN_3;
+  lora.frequency = 433000000;   // 433 MHz
 
-    		// SX1278
-    lora.hspi = &hspi1;
-    lora.nss_port = GPIOA;
-    lora.nss_pin = GPIO_PIN_4;
-    lora.reset_port = GPIOA;
-    lora.reset_pin = GPIO_PIN_3;
-    lora.frequency = 433000000;   // 433 MHz
+  if (SX1278_Init(&lora) != HAL_OK)
+  {
+      LCD_DrawString(12, 44, "LoRa: FAILED            ", LCD_RED, LCD_PANEL_2, 1);
+      HAL_Delay(2000);
+      Error_Handler();
+  }
 
-    if (SX1278_Init(&lora) != HAL_OK)
-    {
-        Error_Handler();
-    }
-    memset(&lcd_data, 0, sizeof(lcd_data));
-    LCD_UI_Init();
-    LCD_UpdateDateTime(rtc_time.date, rtc_time.month, rtc_time.year, rtc_time.hours, rtc_time.minutes);
-    LCD_UpdatePM25(0, 0);
-    LCD_UpdateTemp(0);
-    LCD_UpdateHumi(0);
-    LCD_UpdatePres(0);
-    LCD_UpdateUV(0);
+  LCD_DrawString(12, 44, "System Ready!           ", LCD_GREEN, LCD_PANEL_2, 1);
+  HAL_Delay(800);
+
+  // Initialize UI Values
+  LCD_UpdateDateTime(rtc_time.date, rtc_time.month, rtc_time.year, rtc_time.hours, rtc_time.minutes);
+  LCD_UpdatePM25(0, 0);
+  LCD_UpdateTemp(0);
+  LCD_UpdateHumi(0);
+  LCD_UpdatePres(0);
+  LCD_UpdateUV(0);
     //PMS_Runtime_t rt;
   /* USER CODE END 2 */
 
@@ -194,7 +212,16 @@ int main(void)
 	      if (PMS_IsAverageReady())
 	      {
 	          // 1. Đọc tất cả cảm biến khác ngay tại thời điểm này
-	          BME280_Measure(&Temperature, &Pressure, &Humidity);
+	          if (bme280_enabled)
+	          {
+	              BME280_Measure(&Temperature, &Pressure, &Humidity);
+	          }
+	          else
+	          {
+	              Temperature = 0.0f;
+	              Pressure = 0.0f;
+	              Humidity = 0.0f;
+	          }
 	          UV_voltage = GUVA_ReadVoltage(&hadc1, 3.3f);
 	          UV_index   = UV_voltage * 10.0f;
 	          pm25_average_live = PMS_GetPM25_Average();

@@ -11,7 +11,16 @@ import AlertBanner from '@/components/ui/AlertBanner';
 import StatusBadge from '@/components/ui/StatusBadge';
 import UvIndexBar from '@/components/ui/UvIndexBar';
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
+const fetcher = (url: string) => fetch(url).then(async (r) => {
+  if (!r.ok) {
+    const errData = await r.json().catch(() => ({}));
+    const err = new Error(errData.error || `HTTP error! status: ${r.status}`);
+    (err as any).status = r.status;
+    throw err;
+  }
+  return r.json();
+});
+
 const POLL_INTERVAL = 3_000; // 3 seconds — quick updates for live dashboard
 const STALE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes = offline
 
@@ -29,11 +38,15 @@ export default function LivePanel() {
     }
   }, [data?.id, router]);
 
+  const isNoDataYet = error && (error as any).status === 404;
+  const isRealError = error && (error as any).status !== 404;
+  const showWaiting = (isLoading && !data) || isNoDataYet;
+
   const isLive = data?.received_at
     ? Date.now() - new Date(data.received_at).getTime() < STALE_THRESHOLD_MS
     : false;
 
-  const aqiInfo = data ? getAqiInfoFromPm25(data.pm25) : null;
+  const aqiInfo = data && !isNoDataYet ? getAqiInfoFromPm25(data.pm25) : null;
   const showAlert = aqiInfo && aqiInfo.aqi > 100;
 
   return (
@@ -77,30 +90,30 @@ export default function LivePanel() {
             />
             <MetricCard
               label="Temperature"
-              value={data?.temperature ?? null}
+              value={data && !isNoDataYet ? data.temperature : null}
               unit="°C"
               icon="🌡️"
               decimals={1}
-              alertLevel={data ? getTemperatureAlert(data.temperature).level : 'normal'}
-              accentColor={data ? getTemperatureAlert(data.temperature).color : undefined}
+              alertLevel={data && !isNoDataYet ? getTemperatureAlert(data.temperature).level : 'normal'}
+              accentColor={data && !isNoDataYet ? getTemperatureAlert(data.temperature).color : undefined}
             />
             <MetricCard
               label="Humidity"
-              value={data?.humidity ?? null}
+              value={data && !isNoDataYet ? data.humidity : null}
               unit="%"
               icon="💧"
               decimals={1}
-              alertLevel={data ? getHumidityAlert(data.humidity).level : 'normal'}
-              accentColor={data ? getHumidityAlert(data.humidity).color : undefined}
+              alertLevel={data && !isNoDataYet ? getHumidityAlert(data.humidity).level : 'normal'}
+              accentColor={data && !isNoDataYet ? getHumidityAlert(data.humidity).color : undefined}
             />
             <MetricCard
               label="Pressure"
-              value={data?.pressure ?? null}
+              value={data && !isNoDataYet ? data.pressure : null}
               unit="hPa"
               icon="📊"
               decimals={1}
-              alertLevel={data ? getPressureAlert(data.pressure).level : 'normal'}
-              accentColor={data ? getPressureAlert(data.pressure).color : undefined}
+              alertLevel={data && !isNoDataYet ? getPressureAlert(data.pressure).level : 'normal'}
+              accentColor={data && !isNoDataYet ? getPressureAlert(data.pressure).color : undefined}
             />
           </div>
 
@@ -109,14 +122,14 @@ export default function LivePanel() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
               <span style={{ fontSize: '0.6875rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>UV INDEX</span>
               <span className="mono" style={{ fontSize: '1.25rem', fontWeight: 600 }}>
-                {data?.uv?.toFixed(2) ?? '—'}
+                {data && !isNoDataYet ? data.uv?.toFixed(2) : '—'}
               </span>
             </div>
-            <UvIndexBar uv={data?.uv ?? null} />
+            <UvIndexBar uv={data && !isNoDataYet ? data.uv : null} />
           </div>
 
           {/* Sensor Timestamp */}
-          {data && (
+          {data && !isNoDataYet && (
             <div style={{ display: 'flex', gap: 'var(--space-lg)', fontSize: '0.8125rem', color: 'var(--text-secondary)', padding: '0 4px' }}>
               <span>📅 {data.sensor_date}</span>
               <span className="mono">⏰ {data.sensor_time}</span>
@@ -126,14 +139,14 @@ export default function LivePanel() {
       </div>
 
       {/* Loading / Error states */}
-      {isLoading && !data && (
+      {showWaiting && (
         <div style={{ textAlign: 'center', padding: 'var(--space-2xl)', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
           ⏳ Waiting for first sensor reading...
         </div>
       )}
-      {error && (
+      {isRealError && (
         <div style={{ textAlign: 'center', padding: 'var(--space-xl)', color: '#F87171', fontSize: '0.875rem' }}>
-          ⚠️ Failed to fetch data. Retrying in 30s...
+          ⚠️ Failed to fetch data. Retrying in 3s...
         </div>
       )}
     </div>

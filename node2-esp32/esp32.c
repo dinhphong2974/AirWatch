@@ -219,27 +219,8 @@ bool sendToDashboard(const SensorData &d) {
   if (!d.valid) return false;
 
   if (WiFi.status() != WL_CONNECTED) {
-    unsigned long now = millis();
-    if (now - lastWifiRetry > 120000 || lastWifiRetry == 0) {
-      lastWifiRetry = now;
-      updateStatusLine("WiFi Reconnecting...", "Wait 10s...", ST77XX_CYAN);
-      WiFi.begin(); 
-      int retryCount = 0;
-      while (WiFi.status() != WL_CONNECTED && retryCount < 20) {
-        delay(500);
-        retryCount++;
-      }
-      if (WiFi.status() == WL_CONNECTED) {
-        updateStatusLine("WiFi Connected!", WiFi.localIP().toString(), ST77XX_GREEN);
-      } else {
-        updateStatusLine("OFFLINE MODE", "Retry in 2 mins", ST77XX_ORANGE);
-      }
-    }
-  } else {
-    lastWifiRetry = 0;
+    return false;
   }
-
-  if (WiFi.status() != WL_CONNECTED) return false;
 
   HTTPClient http;
   http.begin(DASHBOARD_SERVER);
@@ -271,36 +252,38 @@ void deselectAllSPI() {
   delayMicroseconds(10);
 }
 
-bool getFieldValue(const String &data, const String &key, String &out) {
-  int start = data.indexOf(key);
-  if (start == -1) return false;
-  start += key.length();
-  int end = data.indexOf(",", start);
-  if (end == -1) end = data.length();
-  out = data.substring(start, end);
-  out.trim();
-  return true;
-}
-
 bool parseData(const String &data, SensorData &outData) {
-  String sTemp, sHum, sPress, sUV, sPM25, sTime, sDate;
-  bool ok1 = getFieldValue(data, "T=", sTemp);
-  bool ok2 = getFieldValue(data, "H=", sHum);
-  bool ok3 = getFieldValue(data, "P=", sPress);
-  bool ok4 = getFieldValue(data, "UV=", sUV);
-  bool ok5 = getFieldValue(data, "PM25=", sPM25);
-  bool ok6 = getFieldValue(data, "TIME=", sTime);
-  bool ok7 = getFieldValue(data, "DATE=", sDate);
-  if (!(ok1 && ok2 && ok3 && ok4 && ok5 && ok6 && ok7)) return false;
-  outData.temperature = sTemp.toFloat();
-  outData.humidity    = sHum.toFloat();
-  outData.pressure    = sPress.toFloat();
-  outData.uv          = sUV.toFloat();
-  outData.pm25        = sPM25.toFloat();
-  outData.timeStr     = sTime;
-  outData.dateStr     = sDate;
-  outData.valid       = true;
-  return true;
+  int startIndex = 0;
+  bool hasPM25 = false, hasTemp = false, hasHum = false, hasPress = false, hasUV = false, hasTime = false, hasDate = false;
+  
+  while (startIndex < data.length()) {
+    int commaIndex = data.indexOf(',', startIndex);
+    if (commaIndex == -1) commaIndex = data.length();
+    
+    String part = data.substring(startIndex, commaIndex);
+    part.trim();
+    
+    int eqIndex = part.indexOf('=');
+    if (eqIndex != -1) {
+      String key = part.substring(0, eqIndex);
+      String val = part.substring(eqIndex + 1);
+      key.trim();
+      val.trim();
+      
+      if (key == "PM25") { outData.pm25 = val.toFloat(); hasPM25 = true; }
+      else if (key == "T") { outData.temperature = val.toFloat(); hasTemp = true; }
+      else if (key == "H") { outData.humidity = val.toFloat(); hasHum = true; }
+      else if (key == "P") { outData.pressure = val.toFloat(); hasPress = true; }
+      else if (key == "UV") { outData.uv = val.toFloat(); hasUV = true; }
+      else if (key == "TIME") { outData.timeStr = val; hasTime = true; }
+      else if (key == "DATE") { outData.dateStr = val; hasDate = true; }
+    }
+    
+    startIndex = commaIndex + 1;
+  }
+  
+  outData.valid = hasPM25 && hasTemp && hasHum && hasPress && hasUV && hasTime && hasDate;
+  return outData.valid;
 }
 
 String makeFileNameFromDate(const String &dateStr) {
@@ -451,6 +434,20 @@ void loop() {
       updateStatusLine("Goi du lieu loi", "", ST77XX_RED);
     }
   }
+  // Non-blocking WiFi background reconnection check
+  if (WiFi.status() != WL_CONNECTED && g_wifiEnabled) {
+    unsigned long now = millis();
+    if (lastWifiRetry == 0 || now - lastWifiRetry > 60000) { 
+      lastWifiRetry = now;
+      Serial.println("WiFi disconnected. Reconnecting in background...");
+      updateStatusLine("WiFi Lost", "Reconnecting...", ST77XX_ORANGE);
+      WiFi.begin(); 
+    }
+  } else if (WiFi.status() == WL_CONNECTED && lastWifiRetry != 0) {
+    lastWifiRetry = 0;
+    updateStatusLine("WiFi Reconnected!", WiFi.localIP().toString(), ST77XX_GREEN);
+  }
+
   if (millis() - lastStatus >= 10000) {
     lastStatus = millis();
     Serial.println("Receiver running...");
