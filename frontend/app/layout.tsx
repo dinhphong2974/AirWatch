@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'AirWatch — Air Quality Monitor',
+  title: 'Air Watch — Air Quality Monitor',
   description: 'Real-time air quality monitoring dashboard powered by STM32 + ESP32 LoRa sensor network.',
   keywords: ['air quality', 'PM2.5', 'AQI', 'IoT', 'LoRa', 'STM32', 'ESP32'],
 };

@@ -20,7 +20,7 @@ export default function Header() {
     <header className="app-header header">
       <Link href="/" className="header-logo">
         <div className="header-logo-icon">🌬️</div>
-        <span>AirWatch</span>
+        <span>Air Watch</span>
       </Link>
 
       <div className="header-right">

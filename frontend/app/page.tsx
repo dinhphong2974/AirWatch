@@ -11,7 +11,7 @@ import type { HistoryResponse } from '@/lib/types';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Live Dashboard — AirWatch',
+  title: 'Live Dashboard — Air Watch',
   description: 'Real-time air quality monitoring: PM2.5, temperature, humidity, pressure, UV index from STM32 + ESP32 LoRa sensor node.',
 };
 
@@ -57,7 +57,7 @@ export default async function DashboardPage() {
           flexWrap: 'wrap',
           gap: 'var(--space-sm)',
         }}>
-          <span>AirWatch Dashboard v2 · STM32 + ESP32 LoRa System</span>
+          <span>Air Watch Dashboard v2 · STM32 + ESP32 LoRa System</span>
           <span>AQI Standard: US-EPA · Sensors: PMS7003, BME280, GUVA-S12SD</span>
         </footer>
       </main>
