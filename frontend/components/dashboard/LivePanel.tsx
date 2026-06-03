@@ -1,6 +1,8 @@
 'use client';
 
 import useSWR from 'swr';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { getAqiInfoFromPm25, getTemperatureAlert, getHumidityAlert, getPressureAlert, getUvAlert, formatTrend } from '@/lib/aqi';
 import type { LatestResponse } from '@/lib/types';
 import AqiGauge from '@/components/ui/AqiGauge';
@@ -10,15 +12,22 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import UvIndexBar from '@/components/ui/UvIndexBar';
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
-const POLL_INTERVAL = 30_000; // 30 seconds — matches STM32 cycle
+const POLL_INTERVAL = 3_000; // 3 seconds — quick updates for live dashboard
 const STALE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes = offline
 
 export default function LivePanel() {
+  const router = useRouter();
   const { data, error, isLoading } = useSWR<LatestResponse>(
     '/api/latest',
     fetcher,
     { refreshInterval: POLL_INTERVAL, revalidateOnFocus: true }
   );
+
+  useEffect(() => {
+    if (data?.id) {
+      router.refresh();
+    }
+  }, [data?.id, router]);
 
   const isLive = data?.received_at
     ? Date.now() - new Date(data.received_at).getTime() < STALE_THRESHOLD_MS

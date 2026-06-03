@@ -257,7 +257,7 @@ bool sendToDashboard(const SensorData &d) {
 
   int httpResponseCode = http.POST(json);
   http.end();
-  return (httpResponseCode == 200);
+  return (httpResponseCode == 200 || httpResponseCode == 201);
 }
 
 // ============================================================================
